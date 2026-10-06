@@ -55,7 +55,7 @@ jobs:
           echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
 
       - name: Install build tools
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends build-essential cmake ninja-build
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends build-essential cmake ninja-build clang libclang-dev
 
       - name: Configure and build
         shell: bash
@@ -80,6 +80,6 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: simu-cli-${{ matrix.radio }}
-          path: build-${{ matrix.radio }}/radio/src/targets/simu/simu-cli
+          path: build-${{ matrix.radio }}/simu-cli
           if-no-files-found: error
           retention-days: 15
