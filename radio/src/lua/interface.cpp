@@ -36,6 +36,10 @@
 #include "switches.h"
 #include "lib_file.h"
 
+#if defined(SIMU)
+#include "simulib.h"
+#endif
+
 #if defined(COLORLCD)
   #include "standalone_lua.h"
 #endif
@@ -1103,6 +1107,10 @@ static bool resumeLua(bool init, bool allowLcdUsage)
           lua_rawgeti(lsScripts, LUA_REGISTRYINDEX, sid.run);
           lua_pushinteger(lsScripts, evt.event);
           inputsCount = 1;
+#if defined(SIMU) && defined(PCBTARANIS)
+          if (ref >= SCRIPT_TELEMETRY_FIRST && ref <= SCRIPT_TELEMETRY_LAST)
+            simuNoteTelemetryRun();
+#endif
         }
         else continue;
       } else

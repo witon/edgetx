@@ -103,6 +103,11 @@ if(EdgeTX_SUPERBUILD)
     DEPENDS native-configure
   )
 
+  add_custom_target(simu-cli
+    COMMAND ${CMAKE_COMMAND} --build native --target simu-cli
+    DEPENDS native-configure
+  )
+
   add_custom_target(wasi-module
     COMMAND ${CMAKE_COMMAND}
       -S ${CMAKE_SOURCE_DIR}/cmake/wasm

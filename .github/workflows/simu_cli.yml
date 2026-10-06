@@ -1,0 +1,83 @@
+name: simu-cli
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths: &trigger-paths
+      - .github/workflows/simu_cli.yml
+      - CMakeLists.txt
+      - cmake/NativeTargets.cmake
+      - radio/src/CMakeLists.txt
+      - radio/src/debug.cpp
+      - radio/src/debug.h
+      - radio/src/main.cpp
+      - radio/src/lua/interface.cpp
+      - radio/src/lua/lua_widget.cpp
+      - radio/src/targets/simu/**
+      - tools/simctl/**
+  pull_request:
+    paths: *trigger-paths
+
+jobs:
+  build:
+    name: simu-cli (${{ matrix.radio }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - radio: x9dp
+            pcb: X9D+
+            pcbrev: ""
+          - radio: tx16s
+            pcb: X10
+            pcbrev: TX16S
+
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: astral-sh/setup-uv@v10.0.1
+        with:
+          enable-cache: true
+          cache-dependency-glob: pyproject.toml
+
+      - name: Install Python dependencies
+        run: |
+          uv sync
+          echo "VIRTUAL_ENV=$PWD/.venv" >> "$GITHUB_ENV"
+          echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
+
+      - name: Install build tools
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends build-essential cmake ninja-build
+
+      - name: Configure and build
+        shell: bash
+        run: |
+          args=(
+            -S . -B "build-${{ matrix.radio }}"
+            -G Ninja
+            -DCMAKE_BUILD_TYPE=Release
+            -DEdgeTX_SUPERBUILD=OFF
+            -DNATIVE_BUILD=ON
+            -DDISABLE_COMPANION=ON
+            -DNATIVE_GTESTS=OFF
+            -DPCB=${{ matrix.pcb }}
+          )
+          if [ -n "${{ matrix.pcbrev }}" ]; then
+            args+=(-DPCBREV=${{ matrix.pcbrev }})
+          fi
+          cmake "${args[@]}"
+          cmake --build "build-${{ matrix.radio }}" --target simu-cli --parallel
+
+      - name: Upload simu-cli
+        uses: actions/upload-artifact@v7
+        with:
+          name: simu-cli-${{ matrix.radio }}
+          path: build-${{ matrix.radio }}/radio/src/targets/simu/simu-cli
+          if-no-files-found: error
+          retention-days: 15

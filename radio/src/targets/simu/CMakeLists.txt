@@ -38,6 +38,7 @@ set(SIMU_DRIVERS
   bt_driver.cpp
   timers_driver.cpp
   abnormal_reboot.cpp
+  simu_ui.cpp
 )
 
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
@@ -123,27 +124,57 @@ if(WASI)
     target_link_options(wasi-module PRIVATE -Wl,--thinlto-jobs=all)
   endif()
 else()
-  add_executable(simu
-    EXCLUDE_FROM_ALL
-    ${SIMU_SRC}
-    simuaudio.cpp
-    display.cpp
-    widgets.cpp
-    knobs.cpp
+  set(SIMU_HOST_SRC
     arg_parser.cpp
-    sdl_simu.cpp
+    simu_inputs.cpp
+    simu_trace.cpp
+    simu_png.cpp
+    simu_control.cpp
   )
 
-  target_compile_options(simu PUBLIC -DSIMU)
+  add_executable(simu-cli
+    EXCLUDE_FROM_ALL
+    ${SIMU_SRC}
+    ${SIMU_HOST_SRC}
+    no_audio.cpp
+    cli_host.cpp
+  )
+  target_compile_options(simu-cli PUBLIC -DSIMU)
+  find_package(Threads REQUIRED)
+  target_link_libraries(simu-cli PRIVATE Threads::Threads)
+  if(WIN32)
+    target_link_libraries(simu-cli PRIVATE ws2_32)
+  endif()
 
-  add_png_target(image_assets "assets/images/*.png")
-  add_dependencies(simu image_assets)
+  # The windowed host needs SDL2. The headless simu-cli target does not.
+  if(NOT TARGET SDL2::SDL2)
+    find_package(SDL2 QUIET COMPONENTS SDL2 CONFIG)
+  endif()
+  if(TARGET SDL2::SDL2)
+    add_executable(simu
+      EXCLUDE_FROM_ALL
+      ${SIMU_SRC}
+      ${SIMU_HOST_SRC}
+      simuaudio.cpp
+      display.cpp
+      widgets.cpp
+      knobs.cpp
+      sdl_simu.cpp
+    )
+    target_compile_options(simu PUBLIC -DSIMU)
 
-  # STB
-  set(STB_DIR ${RADIO_SRC_DIR}/thirdparty/stb)
-  target_include_directories(simu PUBLIC ${STB_DIR})
+    add_png_target(image_assets "assets/images/*.png")
+    add_dependencies(simu image_assets)
 
-  # ImGui
-  include(FetchImgui)
-  target_link_libraries(simu PRIVATE imgui)
+    set(STB_DIR ${RADIO_SRC_DIR}/thirdparty/stb)
+    target_include_directories(simu PUBLIC ${STB_DIR})
+
+    include(FetchImgui)
+    target_link_libraries(simu PRIVATE imgui)
+    if(WIN32)
+      target_link_libraries(simu PRIVATE ws2_32)
+    endif()
+  else()
+    message(STATUS "SDL2 not found; the windowed simu target is not built")
+  endif()
 endif()

@@ -27,12 +27,13 @@
 #include <imgui_impl_sdl2.h>
 #include <imgui_impl_sdlrenderer2.h>
 
+#include <cstdio>
 #include <algorithm>
 #include <iostream>
 #include <fstream>
 #include <filesystem>
-#include <regex>
 #include <string>
+#include <thread>
 
 #include "hal/adc_driver.h"
 #include "hal/rotary_encoder.h"
@@ -77,6 +78,8 @@
 #include "edgetx.h"
 
 #include "arg_parser.h"
+#include "simu_control.h"
+#include "simu_inputs.h"
 
 #define TIMER_INTERVAL 10 // 10ms
 
@@ -84,16 +87,12 @@ static SDL_Window* window;
 static SDL_Renderer* renderer;
 static SDL_Texture* screen_frame_buffer;
 
-static GimbalState stick_left = {{0.5f, 0.5f}, false};
-static GimbalState stick_right = {{0.5f, 0.5f}, false};
 
 #if !defined(__EMSCRIPTEN__)
 static const unsigned char _icon_png[] = {
 #include "icon.lbm"
 };
 #endif
-
-int pots[MAX_POTS] = {0};
 
 static bool handleKeyEvents(SDL_Event& event)
 {
@@ -447,12 +446,30 @@ static float gimbals_width()
   return 244.0f;
 }
 
+static uint16_t gimbalToAdc(float v)
+{
+  if (v < 0.f) v = 0.f;
+  if (v > 1.f) v = 1.f;
+  return (uint16_t)(v * 4096.f);
+}
+
 static void draw_gimbals()
 {
+  GimbalState stick_left = {};
+  GimbalState stick_right = {};
+  stick_left.pos.x = simuInputsGetAdc(0) / 4096.f;
+  stick_left.pos.y = 1.f - simuInputsGetAdc(1) / 4096.f;
+  stick_right.pos.y = 1.f - simuInputsGetAdc(2) / 4096.f;
+  stick_right.pos.x = simuInputsGetAdc(3) / 4096.f;
   stick_left.lock_y = (g_eeGeneral.stickMode == 1);
   stick_right.lock_y = (g_eeGeneral.stickMode == 0);
 
   GimbalPair("#gimbals", stick_left, stick_right);
+
+  simuInputsSetAdc(0, gimbalToAdc(stick_left.pos.x));
+  simuInputsSetAdc(1, gimbalToAdc(1.f - stick_left.pos.y));
+  simuInputsSetAdc(2, gimbalToAdc(1.f - stick_right.pos.y));
+  simuInputsSetAdc(3, gimbalToAdc(stick_right.pos.x));
 }
 
 static float pots_width()
@@ -464,20 +481,44 @@ static float pots_width()
          2 * ImGui::GetStyle().CellPadding.x;
 }
 
+static int potFromAdc(int idx, uint16_t adc)
+{
+  if (getPotType(idx) == FLEX_MULTIPOS) return (int)((uint32_t)adc * 5 / 4096);
+  return (int)((uint32_t)adc * 200 / 4096) - 100;
+}
+
+static uint16_t adcFromPot(int idx, int value)
+{
+  if (getPotType(idx) == FLEX_MULTIPOS) {
+    if (value < 0) value = 0;
+    if (value > 5) value = 5;
+    return (uint16_t)((uint32_t)value * 4096 / 5);
+  }
+  if (value < -100) value = -100;
+  if (value > 100) value = 100;
+  return (uint16_t)(((uint32_t)(value + 100) * 4096) / 200);
+}
+
 static void draw_pots()
 {
   const float spacing = 2;
+  int stickCount = adcGetMaxInputs(ADC_INPUT_MAIN);
+  int flexCount = adcGetMaxInputs(ADC_INPUT_FLEX);
+  static int shown[MAX_POTS];
+  for (int i = 0; i < flexCount && i < MAX_POTS; i++)
+    shown[i] = potFromAdc(i, simuInputsGetAdc((uint8_t)(stickCount + i)));
+
   ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(spacing, spacing));
   ImGui::PushID("pots");
   {
     ImGui::BeginGroup();
     int pot_idx = 0;
-    for (int i = 0; i < adcGetMaxInputs(ADC_INPUT_FLEX); i++) {
+    for (int i = 0; i < flexCount; i++) {
       if (pot_idx > 0) ImGui::SameLine();
       if (++pot_idx >= 5) pot_idx = 0;
 
       if (!IS_POT_AVAILABLE(i)) {
-        pots[i] = 0;
+        shown[i] = 0;
         auto sz = ImGui::GetTextLineHeight() * 4.0f;
         ImGui::Dummy({sz, sz});
       } else {
@@ -489,12 +530,12 @@ static void draw_pots()
         case FLEX_POT:
         case FLEX_POT_CENTER:
         case FLEX_SLIDER:
-          ImGuiKnobs::KnobInt(label, &pots[i], -100, 100, 1, "%d",
+          ImGuiKnobs::KnobInt(label, &shown[i], -100, 100, 1, "%d",
                               ImGuiKnobVariant_Tick, 0, flags);
           break;
 
         case FLEX_MULTIPOS:
-          ImGuiKnobs::KnobInt(label, &pots[i], 0, 5, 0.2f, "%d",
+          ImGuiKnobs::KnobInt(label, &shown[i], 0, 5, 0.2f, "%d",
                               ImGuiKnobVariant_Stepped, 0, flags, 6);
           break;
         }
@@ -505,6 +546,9 @@ static void draw_pots()
   }
   ImGui::PopID();
   ImGui::PopStyleVar();
+
+  for (int i = 0; i < flexCount && i < MAX_POTS; i++)
+    simuInputsSetAdc((uint8_t)(stickCount + i), adcFromPot(i, shown[i]));
 }
 
 void draw_controls()
@@ -651,34 +695,6 @@ static void redraw()
   }
 }
 
-int default_input_mode()
-{
-#if defined(DEFAULT_MODE)
-  return DEFAULT_MODE - 1;
-#else
-  return 0;
-#endif
-}
-
-int find_input_mode()
-{
-  // TODO: add support for path from command line
-  std::ifstream file("./RADIO/radio.yml");
-  if (!file) return default_input_mode();
-
-  std::regex re("^stickMode:\\s*(\\d+)");
-  std::string line;
-
-  while (std::getline(file, line)) {
-    std::smatch matches;
-      if (std::regex_search(line, matches, re) && matches.size() > 1) {
-        return std::stoi(matches[1].str());
-      }
-  }
-
-  return default_input_mode();
-}
-
 int main(int argc, char* argv[])
 {
   auto progname = std::filesystem::path(argv[0]).filename();
@@ -691,6 +707,17 @@ int main(int argc, char* argv[])
   if (args.isHelpRequested()) {
     args.printHelp();
     return 0;
+  }
+
+  SimuControlConfig control;
+  if (args.hasControl()) {
+    std::string error;
+    if (!simuControlParse(args.getControl(), control, error)) {
+      fprintf(stderr, "%s\n", error.c_str());
+      return 1;
+    }
+    simuControlUseStdout(control);
+    simuCreateDefaults();
   }
 
   int window_height = 600;
@@ -764,27 +791,17 @@ int main(int argc, char* argv[])
   // SDL_SetTextureScaleMode(screen_frame_buffer, SDL_ScaleModeBest);
   SDL_SetTextureBlendMode(screen_frame_buffer, SDL_BLENDMODE_BLEND);
 
-  // Init gimbal safe position
-  int input_mode = find_input_mode();
-  switch (input_mode) {
-    case 0:
-    case 2:
-      stick_right.pos.y = 1.0f;
-      break;
-    case 1:
-    case 3:
-      stick_left.pos.y = 1.0f;
-      break;
-    default:
-      SDL_Log("Invalid input mode %d", input_mode);
-      return 0;
-  }
-
   // Init simulation
   simuInit();
+  simuInputsSetThrottleLow(simuInputsInferStickMode(args.getStoragePath()));
   simuFatfsSetPaths(args.getStoragePath().c_str(),
                     args.getSettingsPath().c_str());
-  simuStart();
+  simuStart(control.mode == SimuControlConfig::Mode::None);
+
+  std::thread controlThread;
+  if (control.mode != SimuControlConfig::Mode::None) {
+    controlThread = std::thread([control] { simuControlServe(control); });
+  }
 
   // Main loop
   SDL_SetEventFilter([](void*, SDL_Event* event){
@@ -800,6 +817,7 @@ int main(int argc, char* argv[])
   emscripten_set_main_loop([]() { handleEvents(); }, 0, true);
 #else
   do {
+    if (simuControlStopRequested()) break;
     Uint64 start_ts = SDL_GetPerformanceCounter();
     if (!handleEvents()) break;
 
@@ -812,6 +830,11 @@ int main(int argc, char* argv[])
 
   } while(true);
 #endif
+
+  if (controlThread.joinable()) {
+    simuControlRequestStop();
+    controlThread.join();
+  }
 
   // App cleanup
   simuStop();
@@ -833,40 +856,4 @@ int main(int argc, char* argv[])
   return 0;
 }
 
-uint16_t simuGetAnalog(uint8_t idx)
-{
-  auto max_sticks = adcGetMaxInputs(ADC_INPUT_MAIN);
-  if (idx < max_sticks) {
-    switch(idx) {
-    case 0: return stick_left.pos.x * 4096;
-    case 1: return (1.0 - stick_left.pos.y) * 4096;
-    case 2: return (1.0 - stick_right.pos.y) * 4096;
-    case 3: return stick_right.pos.x * 4096;
-    }
-  }
-
-  idx -= max_sticks;
-
-  auto max_pots = adcGetMaxInputs(ADC_INPUT_FLEX);
-  if (idx < max_pots) {
-    switch(getPotType(idx)){
-    case FLEX_POT:
-    case FLEX_POT_CENTER:
-    case FLEX_SLIDER:
-      return uint16_t(((uint32_t(pots[idx]) + 100) * 4096) / 200);
-    case FLEX_MULTIPOS:
-      return (uint32_t(pots[idx]) * 4096) / 5;
-    }
-  }
-
-  // idx -= max_pots;
-
-  // auto max_axes = adcGetMaxInputs(ADC_INPUT_AXIS);
-  // if (idx < max_axes) return 0;
-
-  // probably RTC_BAT
-  return 0;
-}
-
-void simuTrace(const char* text) {}
 void simuLcdNotify() {}

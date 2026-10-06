@@ -31,6 +31,10 @@
 #include "os/time.h"
 #include "keys.h"
 
+#if defined(SIMU)
+#include "simulib.h"
+#endif
+
 #define MAX_INSTRUCTIONS (20000 / 100)
 
 LuaScriptManager *luaScriptManager = nullptr;
@@ -479,6 +483,9 @@ const char* LuaWidget::getErrorMessage() const { return errorMessage; }
 
 void LuaWidget::refresh(BitmapBuffer* dc)
 {
+#if defined(SIMU)
+  simuNoteWidgetRefresh();
+#endif
   if (lsWidgets == 0 || luaFactory()->refreshFunction == LUA_REFNIL) return;
 
   if (errorMessage) {

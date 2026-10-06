@@ -185,7 +185,7 @@ extern bool simuCreateDefaultSettings;
 
 // Aux serial bridge (firmware -> host).  port_nr is 0 for AUX1, 1 for AUX2.
 // encoding values match SimulatorSerialEncoding (0=8N1, 1=8E2, 2=PXX1_PWM)
-// and ETX_Encoding_* â€” they share the same numeric values.  Called when the
+// and ETX_Encoding_* — they share the same numeric values.  Called when the
 // firmware initialises an aux serial port (start), shuts it down (stop),
 // reconfigures the baudrate, or transmits data.
 void WASM_IMPORT(simuAuxSerialStart)(uint8_t port_nr, uint32_t baudrate,
@@ -194,6 +194,20 @@ void WASM_IMPORT(simuAuxSerialStop)(uint8_t port_nr);
 void WASM_IMPORT(simuAuxSerialSetBaudrate)(uint8_t port_nr, uint32_t baudrate);
 void WASM_IMPORT(simuAuxSerialSendBuffer)(uint8_t port_nr, const uint8_t* data,
                                          uint32_t len);
+
+// UI requests are posted by the control host and applied on the menus task.
+void simuNoteTelemetryRun();
+void simuNoteWidgetRefresh();
+uint32_t simuTelemetryRunCount();
+uint32_t simuWidgetRefreshCount();
+void simuPollUiRequests();
+// Returns false and sets *error when a request is already in progress.
+bool simuUiPostTelemetry(const char* name, const char** error);
+bool simuUiPostWidget(const char* name, const char** error);
+// 0 idle, 1 pending, 2 ok, 3 error
+int simuUiStatus();
+const char* simuUiStatusError();
+void simuUiCancel();
 
 // -- Internal (not exported) --
 

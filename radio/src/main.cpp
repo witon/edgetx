@@ -28,6 +28,10 @@
 #include "edgetx.h"
 #include "lua/lua_states.h"
 
+#if defined(SIMU)
+#include "simulib.h"
+#endif
+
 #if defined(COLORLCD)
 #include "view_main.h"
 #include "startup_shutdown.h"
@@ -642,6 +646,10 @@ void perMain()
   guiMain(evt);
 #endif
   DEBUG_TIMER_STOP(debugTimerGuiMain);
+#endif
+
+#if defined(SIMU)
+  simuPollUiRequests();
 #endif
 
 #if defined(PCBX9E) && !defined(SIMU)

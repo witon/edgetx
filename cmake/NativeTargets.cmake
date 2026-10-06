@@ -33,13 +33,17 @@ if(WIN32)
   set(CMAKE_CXX_USE_RESPONSE_FILE_FOR_LIBRARIES OFF)
 endif()
 
-# google tests
-include(FetchGtest)
+# google tests. simu-cli does not need them, so a build without network
+# can pass -DNATIVE_GTESTS=OFF.
+option(NATIVE_GTESTS "Download and build native radio tests" ON)
+if(NATIVE_GTESTS)
+  include(FetchGtest)
 
-add_custom_target(tests-radio
-  COMMAND ${CMAKE_CURRENT_BINARY_DIR}/gtests-radio
-  DEPENDS gtests-radio
-)
+  add_custom_target(tests-radio
+    COMMAND ${CMAKE_CURRENT_BINARY_DIR}/gtests-radio
+    DEPENDS gtests-radio
+  )
+endif()
 
 if(Qt6Core_FOUND AND NOT DISABLE_COMPANION)
   add_subdirectory(${COMPANION_SRC_DIRECTORY})
@@ -53,7 +57,7 @@ if(Qt6Core_FOUND AND NOT DISABLE_COMPANION)
   add_custom_target(tests
     DEPENDS tests-radio tests-companion
   )
-else()
+elseif(NATIVE_GTESTS)
   add_custom_target(gtests
     DEPENDS gtests-radio
   )

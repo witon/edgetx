@@ -35,6 +35,9 @@ EXTERN_C(extern volatile uint32_t g_tmr10ms);
 #if defined(SIMU)
   typedef void (*traceCallbackFunc)(const char * text);
   extern traceCallbackFunc traceCallback;
+  // When false, debugPrintf() does not also write stdout. The control
+  // protocol uses stdout for JSON and keeps the same text via simuTrace.
+  extern bool simuTraceToStdout;
   EXTERN_C(void debugPrintf(const char * format, ...));
 #elif defined(SEMIHOSTING)
   #include <stdio.h>
