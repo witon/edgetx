@@ -86,3 +86,55 @@ jobs:
           path: build-${{ matrix.radio }}/simu-cli
           if-no-files-found: error
           retention-days: 15
+
+  build-windows:
+    name: simu-cli (zorro, windows)
+    runs-on: windows-latest
+    timeout-minutes: 45
+    env:
+      CC: clang
+      CXX: clang++
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v7
+        with:
+          submodules: recursive
+
+      - name: Set up Python
+        uses: astral-sh/setup-uv@v10.0.1
+        with:
+          enable-cache: true
+          cache-dependency-glob: pyproject.toml
+
+      - name: Install Python dependencies
+        shell: pwsh
+        run: |
+          uv sync
+          Add-Content $env:GITHUB_ENV "VIRTUAL_ENV=$PWD\.venv"
+          Add-Content $env:GITHUB_PATH "$PWD\.venv\Scripts"
+          Add-Content $env:GITHUB_PATH "C:\Program Files\LLVM\bin"
+
+      - name: Set up the MSVC environment
+        shell: pwsh
+        run: ./.github/actions/build_companion/setup-msvc.ps1
+
+      - name: Configure and build
+        shell: bash
+        run: |
+          cmake -S . -B build-zorro -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DEdgeTX_SUPERBUILD=OFF \
+            -DNATIVE_BUILD=ON \
+            -DDISABLE_COMPANION=ON \
+            -DNATIVE_GTESTS=OFF \
+            -DPCB=X7 \
+            -DPCBREV=ZORRO
+          cmake --build build-zorro --target simu-cli --parallel
+
+      - name: Upload simu-cli
+        uses: actions/upload-artifact@v7
+        with:
+          name: simu-cli-zorro-windows
+          path: build-zorro/simu-cli.exe
+          if-no-files-found: error
+          retention-days: 15
