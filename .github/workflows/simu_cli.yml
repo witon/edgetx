@@ -35,6 +35,9 @@ jobs:
           - radio: tx16s
             pcb: X10
             pcbrev: TX16S
+          - radio: zorro
+            pcb: X7
+            pcbrev: ZORRO
 
     steps:
       - name: Check out the repo
