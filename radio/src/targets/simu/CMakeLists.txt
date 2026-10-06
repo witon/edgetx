@@ -130,6 +130,7 @@ else()
     simu_trace.cpp
     simu_png.cpp
     simu_control.cpp
+    simu_hostio.cpp
   )
 
   add_executable(simu-cli
