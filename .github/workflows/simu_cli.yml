@@ -39,6 +39,8 @@ jobs:
     steps:
       - name: Check out the repo
         uses: actions/checkout@v7
+        with:
+          submodules: recursive
 
       - name: Set up Python
         uses: astral-sh/setup-uv@v10.0.1

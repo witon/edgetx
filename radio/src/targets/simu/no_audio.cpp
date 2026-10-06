@@ -21,6 +21,8 @@
 
 #include "simuaudio.h"
 
+#include <cstdint>
+
 bool simuAudioInit() { return false; }
 void simuAudioDeInit() {}
 void simuQueueAudio(const uint8_t*, uint32_t) {}
