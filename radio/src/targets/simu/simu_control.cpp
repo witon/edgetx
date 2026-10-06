@@ -722,14 +722,7 @@ int simuControlServe(const SimuControlConfig& cfg)
 void simuControlRequestStop()
 {
   g_stop.store(true);
-  if (g_client != kInvalidSock) {
-#ifdef _WIN32
-    shutdown(g_client, SD_BOTH);
-#else
-    shutdown(g_client, SHUT_RDWR);
-#endif
-  }
-  if (g_listen != kInvalidSock) closeSock(g_listen);
+  simuHostWake();
 }
 
 bool simuControlStopRequested() { return g_stop.load(); }

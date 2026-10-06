@@ -114,6 +114,18 @@ void simuHostCloseListen()
   g_listen = kInvalidSock;
 }
 
+void simuHostWake()
+{
+  if (g_client != kInvalidSock) {
+#ifdef _WIN32
+    shutdown(g_client, SD_BOTH);
+#else
+    shutdown(g_client, SHUT_RDWR);
+#endif
+  }
+  if (g_listen != kInvalidSock) closeSock(g_listen);
+}
+
 bool simuHostAccept(const std::atomic<bool>& stop)
 {
   while (!stop.load()) {

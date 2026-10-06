@@ -17,6 +17,7 @@ void simuHostNetShutdown();
 
 bool simuHostListen(const std::string& host, int port, std::string& error);
 void simuHostCloseListen();
+void simuHostWake();
 
 bool simuHostAccept(const std::atomic<bool>& stop);
 void simuHostCloseClient();
