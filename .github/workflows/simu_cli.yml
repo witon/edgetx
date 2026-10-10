@@ -138,3 +138,46 @@ jobs:
           path: build-zorro/simu-cli.exe
           if-no-files-found: error
           retention-days: 15
+
+  build-macos:
+    name: simu-cli (zorro, macos)
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v7
+        with:
+          submodules: recursive
+
+      - name: Set up Python
+        uses: astral-sh/setup-uv@v10.0.1
+        with:
+          enable-cache: true
+          cache-dependency-glob: pyproject.toml
+
+      - name: Install Python dependencies
+        run: |
+          uv sync
+          echo "VIRTUAL_ENV=$PWD/.venv" >> "$GITHUB_ENV"
+          echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
+
+      - name: Configure and build
+        shell: bash
+        run: |
+          cmake -S . -B build-zorro -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DEdgeTX_SUPERBUILD=OFF \
+            -DNATIVE_BUILD=ON \
+            -DDISABLE_COMPANION=ON \
+            -DNATIVE_GTESTS=OFF \
+            -DPCB=X7 \
+            -DPCBREV=ZORRO
+          cmake --build build-zorro --target simu-cli --parallel
+
+      - name: Upload simu-cli
+        uses: actions/upload-artifact@v7
+        with:
+          name: simu-cli-zorro-macos
+          path: build-zorro/simu-cli
+          if-no-files-found: error
+          retention-days: 15
