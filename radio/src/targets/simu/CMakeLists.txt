@@ -147,11 +147,15 @@ else()
     target_link_libraries(simu-cli PRIVATE ws2_32)
   endif()
 
-  # The windowed host needs SDL2. The headless simu-cli target does not.
+  # --screen on simu-cli and the windowed simu target both need SDL2.
   if(NOT TARGET SDL2::SDL2)
     find_package(SDL2 QUIET COMPONENTS SDL2 CONFIG)
   endif()
   if(TARGET SDL2::SDL2)
+    target_sources(simu-cli PRIVATE display.cpp cli_screen.cpp)
+    target_compile_definitions(simu-cli PRIVATE SIMU_CLI_SCREEN)
+    target_link_libraries(simu-cli PRIVATE SDL2::SDL2)
+
     add_executable(simu
       EXCLUDE_FROM_ALL
       ${SIMU_SRC}
@@ -176,6 +180,6 @@ else()
       target_link_libraries(simu PRIVATE ws2_32)
     endif()
   else()
-    message(STATUS "SDL2 not found; the windowed simu target is not built")
+    message(STATUS "SDL2 not found; the windowed simu target is not built and simu-cli --screen is unavailable")
   endif()
 endif()

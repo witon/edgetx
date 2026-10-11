@@ -1,6 +1,6 @@
 # 模拟器控制协议
 
-`simu-cli` 是无界面模拟器。带窗口的 `simu` 加上 `--control` 后使用同一套命令。标准输出在 `stdio` 模式下只放 JSON，每行一条；固件原来的 `debugPrintf()` 日志（含 Lua `print()` 和 `-E- ` 错误）改由 `log` 命令读取，内容和 Companion 调试窗口相同。
+`simu-cli` 默认无界面。加上 `--screen` 后只打开 LCD 窗口，不含摇杆和开关，命令仍走同一套协议。带窗口的 `simu` 加上 `--control` 后也使用这套命令。标准输出在 `stdio` 模式下只放 JSON，每行一条；固件原来的 `debugPrintf()` 日志（含 Lua `print()` 和 `-E- ` 错误）改由 `log` 命令读取，内容和 Companion 调试窗口相同。`--screen` 不改变这一点。只有 `--control tcp://主机:端口` 时，日志才会同时写到标准输出。
 
 就绪时先有一行：
 

@@ -27,6 +27,8 @@ bool ArgumentParser::parse(int argc, char *argv[]) {
     } else if (arg == "--control") {
       if (!getNextArg(argc, argv, i, control, "control"))
         return false;
+    } else if (arg == "--screen") {
+      screen = true;
     } else if (arg == "-h" || arg == "--help") {
       help_requested = true;
       return true;
@@ -41,7 +43,8 @@ bool ArgumentParser::parse(int argc, char *argv[]) {
 
 void ArgumentParser::printUsage() const {
   printf("usage: %s [--width width] [--height height] [--storage path] "
-         "[--settings path] [--control stdio|tcp://host:port] [-h | --help]\n",
+         "[--settings path] [--control stdio|tcp://host:port] [--screen] "
+         "[-h | --help]\n",
          program_name.c_str());
 }
 
@@ -53,6 +56,7 @@ void ArgumentParser::printHelp() const {
   printf("  --storage path     Set the storage path\n");
   printf("  --settings path    Set the settings path\n");
   printf("  --control target   JSON control channel: stdio or tcp://host:port\n");
+  printf("  --screen           Show the LCD in a window\n");
   printf("  -h, --help         Show this help message\n");
 }
 
@@ -81,6 +85,8 @@ bool ArgumentParser::hasStoragePath() const { return !storage_path.empty(); }
 bool ArgumentParser::hasSettingsPath() const { return !settings_path.empty(); }
 
 bool ArgumentParser::hasControl() const { return !control.empty(); }
+
+bool ArgumentParser::hasScreen() const { return screen; }
 
 bool ArgumentParser::getNextArg(int argc, char *argv[], int &i,
                                 std::string &value,

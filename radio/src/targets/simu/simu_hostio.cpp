@@ -6,6 +6,7 @@
 
 #include "simu_hostio.h"
 
+#include <cerrno>
 #include <chrono>
 #include <cstdio>
 #include <cstring>
@@ -187,6 +188,8 @@ bool simuHostReadClientLine(std::string& line, bool& closed, const std::atomic<b
 
 bool simuHostReadStdioLine(std::string& line, bool& closed, const std::atomic<bool>& stop)
 {
+  // Read the fd directly. getchar() pulls extra bytes into the stdio buffer,
+  // and the next select/Peek then waits even though a full line is already here.
   line.clear();
   while (!stop.load()) {
 #ifdef _WIN32
@@ -206,6 +209,12 @@ bool simuHostReadStdioLine(std::string& line, bool& closed, const std::atomic<bo
       std::this_thread::sleep_for(std::chrono::milliseconds(20));
       continue;
     }
+    char c = 0;
+    DWORD n = 0;
+    if (!ReadFile(h, &c, 1, &n, nullptr) || n == 0) {
+      closed = true;
+      return false;
+    }
 #else
     fd_set fds;
     FD_ZERO(&fds);
@@ -216,17 +225,19 @@ bool simuHostReadStdioLine(std::string& line, bool& closed, const std::atomic<bo
     int rc = select(STDIN_FILENO + 1, &fds, nullptr, nullptr, &tv);
     if (rc == 0) continue;
     if (rc < 0) {
+      if (errno == EINTR) continue;
+      closed = true;
+      return false;
+    }
+    char c = 0;
+    ssize_t n = read(STDIN_FILENO, &c, 1);
+    if (n <= 0) {
       closed = true;
       return false;
     }
 #endif
-    int c = getchar();
-    if (c == EOF) {
-      closed = true;
-      return false;
-    }
     if (c == '\n') return true;
-    if (c != '\r') line.push_back((char)c);
+    if (c != '\r') line.push_back(c);
   }
   return false;
 }
