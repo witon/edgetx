@@ -108,7 +108,7 @@ printf '%s\n' \
 {"id":1,"cmd":"help"}
 ```
 
-命令的完整列表、遥测脚本和小部件的打开方式在 [tools/simctl/PROTOCOL.md](../tools/simctl/PROTOCOL.md)。Python 客户端是 `tools/simctl`。在 `tools` 目录可以这样跑一次脚本检查：
+命令的完整列表、遥测脚本和小部件的打开方式在 `tools/simctl/PROTOCOL.md`。Python 客户端是 `tools/simctl`。在 `tools` 目录可以这样跑一次脚本检查：
 
 ```bash
 python -m simctl test --kind telemetry --sim /path/to/simu-cli --storage ./sd --script telem --expect "telem ready"
