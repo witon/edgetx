@@ -3,14 +3,19 @@
  *
  * License GPLv2: http://www.gnu.org/licenses/gpl-2.0.html
  *
- * Headless simulator host. Firmware tasks run as usual; this process
- * has no SDL window and speaks the JSON control protocol.
+ * Simulator host. Firmware tasks run as usual. The process speaks the
+ * JSON control protocol and stays headless unless --screen is set.
  */
 
 #include "arg_parser.h"
 #include "simu_control.h"
 #include "simu_inputs.h"
 #include "simulib.h"
+
+#if defined(SIMU_CLI_SCREEN)
+#include "cli_screen.h"
+#include <thread>
+#endif
 
 #include <cstdio>
 #include <filesystem>
@@ -26,7 +31,8 @@ int main(int argc, char* argv[])
   if (args.isHelpRequested()) {
     args.printHelp();
     fprintf(stderr,
-            "\nsimu-cli starts headless. --control defaults to stdio.\n");
+            "\nsimu-cli starts headless. --screen shows the LCD. "
+            "--control defaults to stdio.\n");
     return 0;
   }
 
@@ -39,6 +45,16 @@ int main(int argc, char* argv[])
   }
 
   simuControlUseStdout(cfg);
+  if (args.hasScreen()) {
+#if defined(SIMU_CLI_SCREEN)
+    if (!cliScreenInit()) return 1;
+#else
+    fprintf(stderr,
+            "--screen requires SDL2, which was not found at build time\n");
+    return 1;
+#endif
+  }
+
   int mode = simuInputsInferStickMode(args.getStoragePath());
 
   simuCreateDefaults();
@@ -48,7 +64,19 @@ int main(int argc, char* argv[])
                     args.getSettingsPath().c_str());
   simuStart(false);
 
-  int rc = simuControlServe(cfg);
+  int rc = 0;
+#if defined(SIMU_CLI_SCREEN)
+  if (args.hasScreen()) {
+    std::thread controlThread([cfg] { simuControlServe(cfg); });
+    cliScreenRun();
+    simuControlRequestStop();
+    if (controlThread.joinable()) controlThread.join();
+    cliScreenShutdown();
+  } else
+#endif
+  {
+    rc = simuControlServe(cfg);
+  }
   simuStop();
   return rc;
 }

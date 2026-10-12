@@ -9,6 +9,7 @@ private:
   std::string storage_path;
   std::string settings_path;
   std::string control;
+  bool screen = false;
   bool help_requested = false;
   std::string program_name;
 
@@ -33,6 +34,7 @@ public:
   bool hasStoragePath() const;
   bool hasSettingsPath() const;
   bool hasControl() const;
+  bool hasScreen() const;
 
 private:
   bool getNextArg(int argc, char *argv[], int &i, std::string &value,

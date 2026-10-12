@@ -161,6 +161,9 @@ jobs:
           echo "VIRTUAL_ENV=$PWD/.venv" >> "$GITHUB_ENV"
           echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
 
+      - name: Install SDL2
+        run: brew install sdl2
+
       - name: Configure and build
         shell: bash
         run: |
@@ -171,7 +174,8 @@ jobs:
             -DDISABLE_COMPANION=ON \
             -DNATIVE_GTESTS=OFF \
             -DPCB=X7 \
-            -DPCBREV=ZORRO
+            -DPCBREV=ZORRO \
+            -DCMAKE_PREFIX_PATH="$(brew --prefix sdl2)"
           cmake --build build-zorro --target simu-cli --parallel
 
       - name: Upload simu-cli
